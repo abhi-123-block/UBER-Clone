@@ -11,6 +11,11 @@ router.post('/register', [
     userController.registerUser
 )
 
+router.post('/login', [
+    body('email').isEmail().withMessage('Invalid Email'),
+    body('password').isLength({min:8}).withMessage('password must be of 8 characters ')
+], 
+    userController.loginUser
+)
 
-
-module.exports =router
+module.exports = router

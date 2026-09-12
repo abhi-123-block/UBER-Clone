@@ -119,3 +119,102 @@ curl -X POST http://localhost:3000/users/register \
     "password": "password123"
   }'
 ```
+
+## Login User
+
+Authenticates an existing user and returns an authentication token.
+
+### Endpoint
+
+```http
+POST /users/login
+```
+
+### Request Headers
+
+```http
+Content-Type: application/json
+```
+
+### Request Body
+
+Send a JSON object containing the user's email and password:
+
+```json
+{
+  "email": "john.doe@example.com",
+  "password": "password123"
+}
+```
+
+### Request Fields
+
+| Field | Type | Required | Requirements |
+| --- | --- | --- | --- |
+| `email` | string | Yes | Must be a valid email address. |
+| `password` | string | Yes | Must contain at least 8 characters. |
+
+### Successful Response
+
+**Status:** `200 OK`
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "_id": "65f1a2b3c4d5e6f789012345",
+    "fullname": {
+      "firstname": "John",
+      "lastname": "Doe"
+    },
+    "email": "john.doe@example.com"
+  }
+}
+```
+
+The response includes a JWT in `token` and the authenticated user in `user`.
+
+### Error Responses
+
+#### Validation Error
+
+**Status:** `400 Bad Request`
+
+Returned when the email is invalid or the password has fewer than 8 characters.
+
+```json
+{
+  "errors": [
+    {
+      "type": "field",
+      "value": "bad-email",
+      "msg": "Invalid Email",
+      "path": "email",
+      "location": "body"
+    }
+  ]
+}
+```
+
+#### Invalid Credentials
+
+**Status:** `401 Unauthorized`
+
+Returned when the email does not exist or the password is incorrect.
+
+```json
+{
+  "message": "Invalid email or password"
+}
+```
+
+### Example cURL Request
+
+```bash
+curl -X POST http://localhost:3000/users/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john.doe@example.com",
+    "password": "password123"
+  }'
+```
