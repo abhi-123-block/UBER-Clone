@@ -218,3 +218,106 @@ curl -X POST http://localhost:3000/users/login \
     "password": "password123"
   }'
 ```
+
+## Get User Profile
+
+Returns the profile of the currently authenticated user.
+
+### Endpoint
+
+```http
+GET /users/profile
+```
+
+### Authentication
+
+Provide the JWT using either the `token` cookie or the `Authorization` header:
+
+```http
+Authorization: Bearer <jwt-token>
+```
+
+### Successful Response
+
+**Status:** `200 OK`
+
+```json
+{
+  "_id": "65f1a2b3c4d5e6f789012345",
+  "fullname": {
+    "firstname": "John",
+    "lastname": "Doe"
+  },
+  "email": "john.doe@example.com"
+}
+```
+
+### Error Responses
+
+#### Authentication Error
+
+**Status:** `401 Unauthorized`
+
+Returned when the token is missing, invalid, expired, or blacklisted.
+
+```json
+{
+  "message": "Access denied. No token provided."
+}
+```
+
+### Example cURL Request
+
+```bash
+curl http://localhost:3000/users/profile \
+  -H "Authorization: Bearer <jwt-token>"
+```
+
+## Logout User
+
+Logs out the currently authenticated user by clearing the `token` cookie.
+
+### Endpoint
+
+```http
+GET /users/logout
+```
+
+### Authentication
+
+Provide the JWT using either the `token` cookie or the `Authorization` header:
+
+```http
+Authorization: Bearer <jwt-token>
+```
+
+### Successful Response
+
+**Status:** `200 OK`
+
+```json
+{
+  "message": "Logged out successfully"
+}
+```
+
+### Error Responses
+
+#### Authentication Error
+
+**Status:** `401 Unauthorized`
+
+Returned when the request does not include a valid authentication token.
+
+```json
+{
+  "message": "Access denied. No token provided."
+}
+```
+
+### Example cURL Request
+
+```bash
+curl http://localhost:3000/users/logout \
+  -H "Authorization: Bearer <jwt-token>"
+```
