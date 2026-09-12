@@ -321,3 +321,196 @@ Returned when the request does not include a valid authentication token.
 curl http://localhost:3000/users/logout \
   -H "Authorization: Bearer <jwt-token>"
 ```
+
+## Captain Routes
+
+Captain routes are mounted under `/captains`.
+
+> **Implementation status:** The captain router currently needs wiring fixes before these endpoints can be used. In `app.js`, the captain path is currently mounted with the user router, and `captain.routes.js` references undefined controller and middleware variables for the non-registration routes. The request and response contracts below describe the intended captain API.
+
+### Register Captain
+
+Creates a captain account, stores the vehicle details, and returns an authentication token.
+
+#### Endpoint
+
+```http
+POST /captains/register
+```
+
+#### Request Headers
+
+```http
+Content-Type: application/json
+```
+
+#### Request Body
+
+```json
+{
+  "fullname": {
+    "firstname": "Jane",
+    "lastname": "Doe"
+  },
+  "email": "jane.doe@example.com",
+  "password": "password123",
+  "vehicle": {
+    "color": "white",
+    "plate": "ABC-123",
+    "capacity": 4,
+    "vehicleType": "car"
+  }
+}
+```
+
+#### Request Fields
+
+| Field | Type | Required | Requirements |
+| --- | --- | --- | --- |
+| `fullname` | object | Yes | Contains the captain's name. |
+| `fullname.firstname` | string | Yes | Must contain at least 3 characters. |
+| `fullname.lastname` | string | No | The last name is accepted when provided. |
+| `email` | string | Yes | Must be a valid email address. |
+| `password` | string | Yes | Must contain at least 8 characters. It is hashed before storage. |
+| `vehicle` | object | Yes | Contains the captain's vehicle details. |
+| `vehicle.color` | string | Yes | Must contain at least 3 characters. |
+| `vehicle.plate` | string | Yes | Must contain at least 3 characters. |
+| `vehicle.capacity` | integer | Yes | Must be between 1 and 5. |
+| `vehicle.vehicleType` | string | Yes | Must be `car`, `auto`, or `bike`. |
+
+#### Successful Response
+
+**Status:** `201 Created`
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "captain": {
+    "_id": "65f1a2b3c4d5e6f789012345",
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Doe"
+    },
+    "email": "jane.doe@example.com",
+    "vehicle": {
+      "color": "white",
+      "plate": "ABC-123",
+      "capacity": 4,
+      "vehicleType": "car"
+    },
+    "status": "inactive"
+  }
+}
+```
+
+#### Error Responses
+
+**Status:** `400 Bad Request` is returned when validation fails:
+
+```json
+{
+  "errors": [
+    {
+      "type": "field",
+      "value": "scooter",
+      "msg": "vehicle type must be either car, auto or bike",
+      "path": "vehicle.vehicleType",
+      "location": "body"
+    }
+  ]
+}
+```
+
+**Status:** `400 Bad Request` is returned when the email is already registered:
+
+```json
+{
+  "message": "Captain already exists"
+}
+```
+
+#### Example cURL Request
+
+```bash
+curl -X POST http://localhost:3000/captains/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Doe"
+    },
+    "email": "jane.doe@example.com",
+    "password": "password123",
+    "vehicle": {
+      "color": "white",
+      "plate": "ABC-123",
+      "capacity": 4,
+      "vehicleType": "car"
+    }
+  }'
+```
+
+### Login Captain
+
+Authenticates an existing captain and returns an authentication token.
+
+#### Endpoint
+
+```http
+POST /captains/login
+```
+
+#### Request Body
+
+```json
+{
+  "email": "jane.doe@example.com",
+  "password": "password123"
+}
+```
+
+The email must be valid and the password must contain at least 8 characters. The intended successful response is `200 OK` with a token and captain object. Invalid credentials should return `401 Unauthorized` with:
+
+```json
+{
+  "message": "Invalid email or password"
+}
+```
+
+### Get Captain Profile
+
+Returns the currently authenticated captain.
+
+#### Endpoint
+
+```http
+GET /captains/profile
+```
+
+#### Authentication
+
+Provide the JWT using either the `token` cookie or the `Authorization` header:
+
+```http
+Authorization: Bearer <jwt-token>
+```
+
+The intended successful response is `200 OK` with the captain profile. Missing, invalid, expired, or blacklisted tokens should return `401 Unauthorized`.
+
+### Logout Captain
+
+Logs out the currently authenticated captain by clearing the `token` cookie.
+
+#### Endpoint
+
+```http
+GET /captains/logout
+```
+
+Use the same authentication header described for the profile endpoint. The intended successful response is `200 OK`:
+
+```json
+{
+  "message": "Logged out successfully"
+}
+```
