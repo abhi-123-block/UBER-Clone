@@ -460,6 +460,12 @@ Authenticates an existing captain and returns an authentication token.
 POST /captains/login
 ```
 
+#### Request Headers
+
+```http
+Content-Type: application/json
+```
+
 #### Request Body
 
 ```json
@@ -469,12 +475,70 @@ POST /captains/login
 }
 ```
 
-The email must be valid and the password must contain at least 8 characters. The intended successful response is `200 OK` with a token and captain object. Invalid credentials should return `401 Unauthorized` with:
+The email must be valid and the password must contain at least 8 characters.
+
+#### Successful Response
+
+**Status:** `200 OK`
+
+The response includes the JWT in the JSON body and also sets it in the `token` cookie.
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "captain": {
+    "_id": "65f1a2b3c4d5e6f789012345",
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Doe"
+    },
+    "email": "jane.doe@example.com",
+    "vehicle": {
+      "color": "white",
+      "plate": "ABC-123",
+      "capacity": 4,
+      "vehicleType": "car"
+    },
+    "status": "inactive"
+  }
+}
+```
+
+#### Error Responses
+
+**Status:** `400 Bad Request` is returned when the email is invalid or the password has fewer than 8 characters:
+
+```json
+{
+  "errors": [
+    {
+      "type": "field",
+      "value": "bad-email",
+      "msg": "Invalid Email",
+      "path": "email",
+      "location": "body"
+    }
+  ]
+}
+```
+
+**Status:** `401 Unauthorized` is returned when the email does not exist or the password is incorrect:
 
 ```json
 {
   "message": "Invalid email or password"
 }
+```
+
+#### Example cURL Request
+
+```bash
+curl -X POST http://localhost:3000/captains/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "jane.doe@example.com",
+    "password": "password123"
+  }'
 ```
 
 ### Get Captain Profile
@@ -495,7 +559,52 @@ Provide the JWT using either the `token` cookie or the `Authorization` header:
 Authorization: Bearer <jwt-token>
 ```
 
-The intended successful response is `200 OK` with the captain profile. Missing, invalid, expired, or blacklisted tokens should return `401 Unauthorized`.
+#### Successful Response
+
+**Status:** `200 OK`
+
+```json
+{
+  "_id": "65f1a2b3c4d5e6f789012345",
+  "fullname": {
+    "firstname": "Jane",
+    "lastname": "Doe"
+  },
+  "email": "jane.doe@example.com",
+  "vehicle": {
+    "color": "white",
+    "plate": "ABC-123",
+    "capacity": 4,
+    "vehicleType": "car"
+  },
+  "status": "inactive"
+}
+```
+
+#### Error Responses
+
+**Status:** `401 Unauthorized` is returned when the token is missing:
+
+```json
+{
+  "message": "Access denied. No token provided."
+}
+```
+
+An invalid or expired token returns:
+
+```json
+{
+  "message": "Invalid token."
+}
+```
+
+#### Example cURL Request
+
+```bash
+curl http://localhost:3000/captains/profile \
+  -H "Authorization: Bearer <jwt-token>"
+```
 
 ### Logout Captain
 
@@ -507,10 +616,39 @@ Logs out the currently authenticated captain by clearing the `token` cookie.
 GET /captains/logout
 ```
 
-Use the same authentication header described for the profile endpoint. The intended successful response is `200 OK`:
+#### Authentication
+
+Provide the JWT using either the `token` cookie or the `Authorization` header:
+
+```http
+Authorization: Bearer <jwt-token>
+```
+
+The endpoint clears the `token` cookie.
+
+#### Successful Response
+
+**Status:** `200 OK`
 
 ```json
 {
   "message": "Logged out successfully"
 }
+```
+
+#### Error Responses
+
+**Status:** `401 Unauthorized` is returned when the request does not include a valid token:
+
+```json
+{
+  "message": "Access denied. No token provided."
+}
+```
+
+#### Example cURL Request
+
+```bash
+curl http://localhost:3000/captains/logout \
+  -H "Authorization: Bearer <jwt-token>"
 ```

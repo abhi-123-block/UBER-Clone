@@ -1,4 +1,4 @@
-const captainModel = require('../models/user.model')
+const captainModel = require('../models/captain.model')
 
 
 

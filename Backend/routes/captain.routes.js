@@ -1,8 +1,8 @@
 const express = require('express')
 const router = express.Router()
 const {body} = require("express-validator")
-const captainController = require('../controllers/user.controller')
-// const authMiddleware = require('../middlewares/auth.middleware')
+const captainController = require('../controllers/captain.controller')
+const authMiddleware = require('../middlewares/auth.middleware')
 
 router.post('/register', [
     body('email').isEmail().withMessage('Invalid Email'),
@@ -20,12 +20,12 @@ router.post('/login', [
     body('email').isEmail().withMessage('Invalid Email'),
     body('password').isLength({min:8}).withMessage('password must be of 8 characters ')
 ], 
-    userController.loginUser
+    captainController.loginCaptain
 )
 
-router.get('/profile', authMiddleware.authUser, userController.getUserProfile)   
+router.get('/profile', authMiddleware.authCaptain, captainController.getCaptainProfile)   
 
-router.get('/logout', authMiddleware.authUser, userController.logoutUser)
+router.get('/logout', authMiddleware.authCaptain, captainController.logoutCaptain)
 
 
 
