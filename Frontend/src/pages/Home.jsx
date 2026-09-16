@@ -1,4 +1,3 @@
-import React from 'react'
 import { Link } from 'react-router-dom'
 import uberLogo from '../assets/uber logo.png'
 import heroImg from '../assets/hero.png'
@@ -10,7 +9,7 @@ const Home = () => {
       <div className="relative flex-1 flex flex-col">
         <img src={uberLogo} alt="Uber" className="w-20 ml-6 mt-6 invert relative z-10" />
         <img
-          src={heroImg}
+          src={Video}
           alt=""
           className="absolute inset-0 w-full h-full object-cover opacity-70"
         />

@@ -1,10 +1,15 @@
 const http = require('http')
 const app = require('./app')
-const port = process.env.PORT || 3000
+const { env } = require('./config/env')
+const { initSocket } = require('./sockets/socket')
 
 const server = http.createServer(app)
 
+initSocket(server)
 
-server.listen(port, () =>{
-    console.log(`Server is running on port ${port}`)
+server.listen(env.PORT, () => {
+  // eslint-disable-next-line no-console
+  console.log(`Server is running on port ${env.PORT}`)
 })
+
+module.exports = server

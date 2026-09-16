@@ -1,654 +1,186 @@
-# Backend API Documentation
+# Uber-clone Backend
 
-## Register User
+A production-shaped REST + Socket.IO API for a two-sided ride-hailing app
+(passengers and captains/drivers), built on Node.js, Express 5, and MongoDB.
 
-Creates a new user account and returns an authentication token.
+## Stack
 
-### Endpoint
+- Node.js / Express 5 (CommonJS)
+- MongoDB + Mongoose
+- JWT auth via secure HTTP-only cookies **and** `Authorization: Bearer` headers
+- bcryptjs password hashing
+- express-validator for input validation
+- Socket.IO for real-time ride updates, authenticated with the same JWTs
+- No external maps API required — distance/duration/fare use a Haversine
+  straight-line estimate by default (see "Maps provider" below)
 
-```http
-POST /users/register
-```
-
-The `/users` route is mounted by the backend application, so the complete endpoint is `/users/register`.
-
-### Request Headers
-
-```http
-Content-Type: application/json
-```
-
-### Request Body
-
-Send a JSON object with the following structure:
-
-```json
-{
-  "fullname": {
-    "firstname": "John",
-    "lastname": "Doe"
-  },
-  "email": "john.doe@example.com",
-  "password": "password123"
-}
-```
-
-### Request Fields
-
-| Field | Type | Required | Requirements |
-| --- | --- | --- | --- |
-| `fullname` | object | Yes | Contains the user's name. |
-| `fullname.firstname` | string | Yes | Must contain at least 3 characters. |
-| `fullname.lastname` | string | No | The last name is accepted by the API and stored when provided. |
-| `email` | string | Yes | Must be a valid email address. |
-| `password` | string | Yes | Must contain at least 8 characters. It is hashed before storage. |
-
-### Successful Response
-
-**Status:** `201 Created`
-
-Example response received from the endpoint:
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "_id": "65f1a2b3c4d5e6f789012345",
-    "fullname": {
-      "firstname": "John",
-      "lastname": "Doe"
-    },
-    "email": "john.doe@example.com"
-  }
-}
-```
-
-The response includes a JWT in `token` and the newly created user in `user`.
-
-### Error Responses
-
-#### Validation Error
-
-**Status:** `400 Bad Request`
-
-Returned when the email is invalid, the first name has fewer than 3 characters, or the password has fewer than 8 characters.
-
-```json
-{
-  "errors": [
-    {
-      "type": "field",
-      "value": "bad-email",
-      "msg": "Invalid Email",
-      "path": "email",
-      "location": "body"
-    }
-  ]
-}
-```
-
-#### User Already Exists
-
-**Status:** `400 Bad Request`
-
-Returned when a user with the submitted email already exists.
-
-```json
-{
-  "message": "User already exists"
-}
-```
-
-#### Server Error
-
-**Status:** `500 Internal Server Error`
-
-Returned when an unexpected server or database error occurs.
-
-### Example cURL Request
+## Setup
 
 ```bash
-curl -X POST http://localhost:3000/users/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fullname": {
-      "firstname": "John",
-      "lastname": "Doe"
-    },
-    "email": "john.doe@example.com",
-    "password": "password123"
-  }'
+cd Backend
+npm install
+cp .env.example .env   # then fill in DB_CONNECT and JWT_SECRET
+npm run dev             # starts on http://localhost:4000
 ```
 
-## Login User
+Required env vars (validated at startup — the process exits with a clear
+message if any are missing):
 
-Authenticates an existing user and returns an authentication token.
+| Var | Description |
+|---|---|
+| `DB_CONNECT` | MongoDB connection string |
+| `JWT_SECRET` | Long random secret used to sign JWTs |
 
-### Endpoint
+Optional:
 
-```http
-POST /users/login
-```
+| Var | Default | Description |
+|---|---|---|
+| `PORT` | `4000` | HTTP port |
+| `JWT_EXPIRES_IN` | `24h` | Token lifetime |
+| `CORS_ORIGIN` | `http://localhost:5173` | Frontend origin allowed to send credentials |
+| `MAPS_PROVIDER` | `none` | `none` uses the built-in Haversine fallback |
+| `MAPS_API_KEY` | *(empty)* | Only used if you wire in a real provider (see `services/maps.service.js`) |
+| `SURGE_ENABLED` / `SURGE_MULTIPLIER` | `false` / `1.5` | Optional flat surge multiplier |
 
-### Request Headers
+**Security note:** the uploaded project's `.env` contained a live MongoDB
+Atlas connection string and JWT secret in plaintext. Treat both as
+compromised — rotate the Atlas database user's password and generate a new
+`JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`)
+before using this anywhere beyond local development.
 
-```http
-Content-Type: application/json
-```
-
-### Request Body
-
-Send a JSON object containing the user's email and password:
-
-```json
-{
-  "email": "john.doe@example.com",
-  "password": "password123"
-}
-```
-
-### Request Fields
-
-| Field | Type | Required | Requirements |
-| --- | --- | --- | --- |
-| `email` | string | Yes | Must be a valid email address. |
-| `password` | string | Yes | Must contain at least 8 characters. |
-
-### Successful Response
-
-**Status:** `200 OK`
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "_id": "65f1a2b3c4d5e6f789012345",
-    "fullname": {
-      "firstname": "John",
-      "lastname": "Doe"
-    },
-    "email": "john.doe@example.com"
-  }
-}
-```
-
-The response includes a JWT in `token` and the authenticated user in `user`.
-
-### Error Responses
-
-#### Validation Error
-
-**Status:** `400 Bad Request`
-
-Returned when the email is invalid or the password has fewer than 8 characters.
-
-```json
-{
-  "errors": [
-    {
-      "type": "field",
-      "value": "bad-email",
-      "msg": "Invalid Email",
-      "path": "email",
-      "location": "body"
-    }
-  ]
-}
-```
-
-#### Invalid Credentials
-
-**Status:** `401 Unauthorized`
-
-Returned when the email does not exist or the password is incorrect.
-
-```json
-{
-  "message": "Invalid email or password"
-}
-```
-
-### Example cURL Request
+## Running tests
 
 ```bash
-curl -X POST http://localhost:3000/users/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "john.doe@example.com",
-    "password": "password123"
-  }'
+npm test
 ```
 
-## Get User Profile
+This runs:
+- `tests/fare.test.js` — pure unit tests for fare calculation and the
+  Haversine distance formula.
+- `tests/ride.service.test.js` — the ride state machine (accept/start/
+  complete/cancel) and ownership checks, using mocked Mongoose models so no
+  database connection is required.
 
-Returns the profile of the currently authenticated user.
-
-### Endpoint
-
-```http
-GET /users/profile
-```
-
-### Authentication
-
-Provide the JWT using either the `token` cookie or the `Authorization` header:
-
-```http
-Authorization: Bearer <jwt-token>
-```
-
-### Successful Response
-
-**Status:** `200 OK`
-
-```json
-{
-  "_id": "65f1a2b3c4d5e6f789012345",
-  "fullname": {
-    "firstname": "John",
-    "lastname": "Doe"
-  },
-  "email": "john.doe@example.com"
-}
-```
-
-### Error Responses
-
-#### Authentication Error
-
-**Status:** `401 Unauthorized`
-
-Returned when the token is missing, invalid, expired, or blacklisted.
-
-```json
-{
-  "message": "Access denied. No token provided."
-}
-```
-
-### Example cURL Request
+For a full live end-to-end check against a **real** MongoDB instance, start
+the server (`npm run dev`) and, in another terminal, run:
 
 ```bash
-curl http://localhost:3000/users/profile \
-  -H "Authorization: Bearer <jwt-token>"
+bash scripts/smoke-test.sh
 ```
 
-## Logout User
+This registers a user and a captain, requests a ride, accepts it, verifies
+the OTP, completes the ride, rates it, and prints the captain's earnings —
+exercising the entire lifecycle end to end over the real HTTP API.
 
-Logs out the currently authenticated user by clearing the `token` cookie.
+## API overview
 
-### Endpoint
-
-```http
-GET /users/logout
-```
-
-### Authentication
-
-Provide the JWT using either the `token` cookie or the `Authorization` header:
-
-```http
-Authorization: Bearer <jwt-token>
-```
-
-### Successful Response
-
-**Status:** `200 OK`
+All responses use the same envelope:
 
 ```json
-{
-  "message": "Logged out successfully"
-}
+{ "success": true, "message": "...", "data": { } }
 ```
 
-### Error Responses
-
-#### Authentication Error
-
-**Status:** `401 Unauthorized`
-
-Returned when the request does not include a valid authentication token.
+Errors:
 
 ```json
-{
-  "message": "Access denied. No token provided."
-}
+{ "success": false, "message": "...", "errors": [ ] }
 ```
 
-### Example cURL Request
+### Auth
 
-```bash
-curl http://localhost:3000/users/logout \
-  -H "Authorization: Bearer <jwt-token>"
+| Method | Route | Notes |
+|---|---|---|
+| POST | `/users/register` | |
+| POST | `/users/login` | Sets an httpOnly `token` cookie and also returns the token in the body |
+| GET | `/users/profile` | Requires auth |
+| PATCH | `/users/profile` | Update phone / profileImage / name |
+| GET | `/users/logout` | Blacklists the current token |
+| POST | `/captains/register` | Requires `vehicle: { color, plate, capacity, vehicleType }` |
+| POST | `/captains/login` | |
+| GET | `/captains/profile` | Requires auth |
+| PATCH | `/captains/profile` | |
+| PATCH | `/captains/status` | `{ "status": "active" \| "inactive" }` — go online/offline |
+| PATCH | `/captains/location` | `{ "lat": number, "lng": number }` |
+| GET | `/captains/logout` | |
+
+### Rides
+
+| Method | Route | Who | Notes |
+|---|---|---|---|
+| POST | `/rides/fare-estimate` | user | Returns distance/duration + a fare per vehicle type |
+| POST | `/rides/request` | user | Creates the ride and notifies nearby online captains over the socket |
+| GET | `/rides/history` | user or captain | Paginated (`?page=&limit=`) |
+| GET | `/rides/earnings` | captain | Lifetime completed-ride earnings |
+| GET | `/rides/:rideId` | participant only | |
+| PATCH | `/rides/:rideId/accept` | captain | `searching` → `accepted` |
+| PATCH | `/rides/:rideId/arriving` | captain | `accepted` → `arriving` |
+| PATCH | `/rides/:rideId/start` | captain | Requires the rider's OTP; → `started` |
+| PATCH | `/rides/:rideId/complete` | captain | `started` → `completed`, bumps both parties' `totalRides` |
+| PATCH | `/rides/:rideId/cancel` | user or captain | Only while `searching`/`accepted`/`arriving` |
+| POST | `/rides/:rideId/rate` | user or captain | Only once the ride is `completed`; one rating per direction, recomputes the running average |
+
+Every ride action re-checks that the caller is the specific user/captain
+attached to that ride (or an unassigned captain for `accept`), independent of
+what the client claims.
+
+### Ride status machine
+
+```
+searching -> accepted -> arriving -> started -> completed
+    \            \           \
+     -----------> cancelled <-
 ```
 
-## Captain Routes
+The OTP is a 4-digit code generated when the ride is created. It's returned
+to the rider once, in the `POST /rides/request` response (`data.ride.otp`) —
+every other read of a ride (`GET /rides/:id`, socket broadcasts to captains,
+history) omits it, since the whole point is that the captain must ask the
+rider for it in person before starting the trip.
 
-Captain routes are mounted under `/captains`.
+## Real-time (Socket.IO)
 
-> **Implementation status:** The captain router currently needs wiring fixes before these endpoints can be used. In `app.js`, the captain path is currently mounted with the user router, and `captain.routes.js` references undefined controller and middleware variables for the non-registration routes. The request and response contracts below describe the intended captain API.
+Connect with the JWT in the handshake:
 
-### Register Captain
-
-Creates a captain account, stores the vehicle details, and returns an authentication token.
-
-#### Endpoint
-
-```http
-POST /captains/register
+```js
+io(BASE_URL, { auth: { token } })
 ```
 
-#### Request Headers
-
-```http
-Content-Type: application/json
-```
-
-#### Request Body
-
-```json
-{
-  "fullname": {
-    "firstname": "Jane",
-    "lastname": "Doe"
-  },
-  "email": "jane.doe@example.com",
-  "password": "password123",
-  "vehicle": {
-    "color": "white",
-    "plate": "ABC-123",
-    "capacity": 4,
-    "vehicleType": "car"
-  }
-}
-```
-
-#### Request Fields
-
-| Field | Type | Required | Requirements |
-| --- | --- | --- | --- |
-| `fullname` | object | Yes | Contains the captain's name. |
-| `fullname.firstname` | string | Yes | Must contain at least 3 characters. |
-| `fullname.lastname` | string | No | The last name is accepted when provided. |
-| `email` | string | Yes | Must be a valid email address. |
-| `password` | string | Yes | Must contain at least 8 characters. It is hashed before storage. |
-| `vehicle` | object | Yes | Contains the captain's vehicle details. |
-| `vehicle.color` | string | Yes | Must contain at least 3 characters. |
-| `vehicle.plate` | string | Yes | Must contain at least 3 characters. |
-| `vehicle.capacity` | integer | Yes | Must be between 1 and 5. |
-| `vehicle.vehicleType` | string | Yes | Must be `car`, `auto`, or `bike`. |
-
-#### Successful Response
-
-**Status:** `201 Created`
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "captain": {
-    "_id": "65f1a2b3c4d5e6f789012345",
-    "fullname": {
-      "firstname": "Jane",
-      "lastname": "Doe"
-    },
-    "email": "jane.doe@example.com",
-    "vehicle": {
-      "color": "white",
-      "plate": "ABC-123",
-      "capacity": 4,
-      "vehicleType": "car"
-    },
-    "status": "inactive"
-  }
-}
-```
-
-#### Error Responses
-
-**Status:** `400 Bad Request` is returned when validation fails:
-
-```json
-{
-  "errors": [
-    {
-      "type": "field",
-      "value": "scooter",
-      "msg": "vehicle type must be either car, auto or bike",
-      "path": "vehicle.vehicleType",
-      "location": "body"
-    }
-  ]
-}
-```
-
-**Status:** `400 Bad Request` is returned when the email is already registered:
-
-```json
-{
-  "message": "Captain already exists"
-}
-```
-
-#### Example cURL Request
-
-```bash
-curl -X POST http://localhost:3000/captains/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fullname": {
-      "firstname": "Jane",
-      "lastname": "Doe"
-    },
-    "email": "jane.doe@example.com",
-    "password": "password123",
-    "vehicle": {
-      "color": "white",
-      "plate": "ABC-123",
-      "capacity": 4,
-      "vehicleType": "car"
-    }
-  }'
-```
-
-### Login Captain
-
-Authenticates an existing captain and returns an authentication token.
-
-#### Endpoint
-
-```http
-POST /captains/login
-```
-
-#### Request Headers
-
-```http
-Content-Type: application/json
-```
-
-#### Request Body
-
-```json
-{
-  "email": "jane.doe@example.com",
-  "password": "password123"
-}
-```
-
-The email must be valid and the password must contain at least 8 characters.
-
-#### Successful Response
-
-**Status:** `200 OK`
-
-The response includes the JWT in the JSON body and also sets it in the `token` cookie.
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "captain": {
-    "_id": "65f1a2b3c4d5e6f789012345",
-    "fullname": {
-      "firstname": "Jane",
-      "lastname": "Doe"
-    },
-    "email": "jane.doe@example.com",
-    "vehicle": {
-      "color": "white",
-      "plate": "ABC-123",
-      "capacity": 4,
-      "vehicleType": "car"
-    },
-    "status": "inactive"
-  }
-}
-```
-
-#### Error Responses
-
-**Status:** `400 Bad Request` is returned when the email is invalid or the password has fewer than 8 characters:
-
-```json
-{
-  "errors": [
-    {
-      "type": "field",
-      "value": "bad-email",
-      "msg": "Invalid Email",
-      "path": "email",
-      "location": "body"
-    }
-  ]
-}
-```
-
-**Status:** `401 Unauthorized` is returned when the email does not exist or the password is incorrect:
-
-```json
-{
-  "message": "Invalid email or password"
-}
-```
-
-#### Example cURL Request
-
-```bash
-curl -X POST http://localhost:3000/captains/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "jane.doe@example.com",
-    "password": "password123"
-  }'
-```
-
-### Get Captain Profile
-
-Returns the currently authenticated captain.
-
-#### Endpoint
-
-```http
-GET /captains/profile
-```
-
-#### Authentication
-
-Provide the JWT using either the `token` cookie or the `Authorization` header:
-
-```http
-Authorization: Bearer <jwt-token>
-```
-
-#### Successful Response
-
-**Status:** `200 OK`
-
-```json
-{
-  "_id": "65f1a2b3c4d5e6f789012345",
-  "fullname": {
-    "firstname": "Jane",
-    "lastname": "Doe"
-  },
-  "email": "jane.doe@example.com",
-  "vehicle": {
-    "color": "white",
-    "plate": "ABC-123",
-    "capacity": 4,
-    "vehicleType": "car"
-  },
-  "status": "inactive"
-}
-```
-
-#### Error Responses
-
-**Status:** `401 Unauthorized` is returned when the token is missing:
-
-```json
-{
-  "message": "Access denied. No token provided."
-}
-```
-
-An invalid or expired token returns:
-
-```json
-{
-  "message": "Invalid token."
-}
-```
-
-#### Example cURL Request
-
-```bash
-curl http://localhost:3000/captains/profile \
-  -H "Authorization: Bearer <jwt-token>"
-```
-
-### Logout Captain
-
-Logs out the currently authenticated captain by clearing the `token` cookie.
-
-#### Endpoint
-
-```http
-GET /captains/logout
-```
-
-#### Authentication
-
-Provide the JWT using either the `token` cookie or the `Authorization` header:
-
-```http
-Authorization: Bearer <jwt-token>
-```
-
-The endpoint clears the `token` cookie.
-
-#### Successful Response
-
-**Status:** `200 OK`
-
-```json
-{
-  "message": "Logged out successfully"
-}
-```
-
-#### Error Responses
-
-**Status:** `401 Unauthorized` is returned when the request does not include a valid token:
-
-```json
-{
-  "message": "Access denied. No token provided."
-}
-```
-
-#### Example cURL Request
-
-```bash
-curl http://localhost:3000/captains/logout \
-  -H "Authorization: Bearer <jwt-token>"
-```
+Every connection is verified against the same JWT secret as the REST API —
+the server looks up the account itself; it never trusts a client-claimed
+role or id. Each socket auto-joins a personal room (`user:<id>` or
+`captain:<id>`).
+
+Client → server events:
+- `join-ride` / `leave-ride` — `{ rideId }`
+- `captain:status` — `{ status: 'active' | 'inactive' }` (mirrors the REST endpoint)
+- `captain:location` — `{ lat, lng, rideId? }`
+
+Server → client events:
+- `ride:new-request` — sent to nearby online captains when a ride is requested
+- `ride:accepted` — sent to the rider
+- `ride:status-update` — sent on arriving/started (and after accept)
+- `ride:cancelled`
+- `ride:completed`
+- `ride:captain-location` — relayed to everyone in the ride room
+
+## Fare calculation
+
+Rates live in one place, `config/fare.config.js` (base fare, per-km, per-
+minute, minimum fare, per vehicle type). `services/fare.service.js` computes
+`max(base + perKm*distance + perMinute*duration, minimumFare)`, with an
+optional flat surge multiplier. Distance/duration come from
+`services/maps.service.js`, which isolates the map-provider boundary: with
+no `MAPS_API_KEY` configured it falls back to a Haversine straight-line
+calculation (scaled by 1.3x to approximate real road distance) so the whole
+app runs with zero external dependencies.
+
+## Known limitations / next steps
+
+- Nearby-captain matching is a simple radius filter (5km) over all active
+  captains of the right vehicle type — fine for a demo, but would want a
+  geospatial index (`2dsphere`) and `$geoNear` at real scale.
+- There's no automatic re-broadcast if the first batch of nearby captains
+  all miss/decline a request — a dispatcher/timeout loop would be a good
+  next addition.
+- Captain-rates-user and user-rates-captain both exist in the schema, but
+  the frontend only wires up the user-rates-captain flow.

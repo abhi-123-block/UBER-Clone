@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import { useContext, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import { UserDataContext } from '../context/UserContext'
@@ -19,7 +19,7 @@ const UserLogin = () => {
 
     try {
       const response = await api.post('/users/login', { email, password })
-      login(response.data.token, response.data.user)
+      login(response.data.data.token, response.data.data.user)
       navigate('/home')
     } catch (err) {
       const backendErrors = err.response?.data?.errors

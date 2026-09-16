@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback } from 'react'
+import { createContext, useState, useCallback } from 'react'
 import api from '../utils/api'
 
 export const CaptainDataContext = createContext(null)
@@ -17,8 +17,8 @@ const CaptainContextProvider = ({ children }) => {
       const response = await api.get('/captains/profile', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setCaptain(response.data)
-    } catch (err) {
+      setCaptain(response.data.data.captain)
+    } catch {
       localStorage.removeItem('captainToken')
       setCaptain(null)
     } finally {
@@ -37,7 +37,7 @@ const CaptainContextProvider = ({ children }) => {
       await api.get('/captains/logout', {
         headers: { Authorization: `Bearer ${token}` },
       })
-    } catch (err) {
+    } catch {
       // Even if the request fails, still clear the local session.
     }
     localStorage.removeItem('captainToken')

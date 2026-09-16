@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback } from 'react'
+import { createContext, useState, useCallback } from 'react'
 import api from '../utils/api'
 
 export const UserDataContext = createContext(null)
@@ -18,8 +18,8 @@ const UserContextProvider = ({ children }) => {
       const response = await api.get('/users/profile', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setUser(response.data)
-    } catch (err) {
+      setUser(response.data.data.user)
+    } catch {
       localStorage.removeItem('userToken')
       setUser(null)
     } finally {
@@ -38,7 +38,7 @@ const UserContextProvider = ({ children }) => {
       await api.get('/users/logout', {
         headers: { Authorization: `Bearer ${token}` },
       })
-    } catch (err) {
+    } catch {
       // Even if the request fails, still clear the local session.
     }
     localStorage.removeItem('userToken')

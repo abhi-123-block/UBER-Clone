@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import { useContext, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import { CaptainDataContext } from '../context/CaptainContext'
@@ -19,7 +19,7 @@ const CaptainLogin = () => {
 
     try {
       const response = await api.post('/captains/login', { email, password })
-      login(response.data.token, response.data.captain)
+      login(response.data.data.token, response.data.data.captain)
       navigate('/captain-home')
     } catch (err) {
       const backendErrors = err.response?.data?.errors
